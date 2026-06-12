@@ -19,10 +19,10 @@
   <title>Controle de Estoque</title>
 
   <!-- Manifesto PWA (ícone, nome, modo standalone) -->
-  <link rel="manifest" href="manifest.json"/>
+  <link rel="manifest" href="/manifest.json"/>
 
   <!-- Ícone para tela inicial do iOS -->
-  <link rel="apple-touch-icon" href="icon-192.png"/>
+  <link rel="apple-touch-icon" href="/icon.svg"/>
 
   <!-- ========================================================
        style.css — Estilos globais
@@ -1815,7 +1815,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(<AppWithAuth/>);
     if ("serviceWorker" in navigator) {
       // Registra o SW apenas depois que a página terminar de carregar
       window.addEventListener("load", () => {
-        navigator.serviceWorker.register("./sw.js")
+        navigator.serviceWorker.register("/sw.js")
           .then(r  => console.log("Service Worker registrado:", r.scope))
           .catch(e => console.log("Erro ao registrar Service Worker:", e));
       });
