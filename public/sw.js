@@ -1,5 +1,5 @@
-const CACHE_NAME = "controle-estoque-v1";
-const ASSETS = ["/", "/manifest.json", "/icon.svg"];
+const CACHE_NAME = "controle-estoque-php-v1";
+const ASSETS = ["/", "/index.html", "/assets/styles.css", "/assets/app.jsx", "/manifest.json", "/icon.svg"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS)));

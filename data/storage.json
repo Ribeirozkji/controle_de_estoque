@@ -1,0 +1,13 @@
+{
+    "suppliers": [],
+    "products": [],
+    "movements": [],
+    "invoices": [],
+    "counters": {
+        "suppliers": 0,
+        "products": 0,
+        "movements": 0,
+        "invoices": 0
+    }
+}
+

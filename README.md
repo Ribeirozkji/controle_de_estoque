@@ -1,79 +1,93 @@
 # Controle de Estoque
 
-Sistema de controle de estoque em migracao para Laravel.
+Sistema simples de estoque com:
 
-O repositório original era um PWA React/Babel de arquivo unico, persistindo tudo em `localStorage`. A estrutura atual preserva essa interface como tela inicial, mas adiciona uma base Laravel para separar rotas, validacoes, regras de negocio, models e migrations.
+- Frontend em React direto no navegador.
+- Backend em PHP puro.
+- Dados salvos em `data/storage.json`.
+- Sem Laravel, sem Composer, sem build de frontend.
 
-## Estrutura atual
+## Estrutura
 
 ```text
-app/
-  Http/Controllers/Api/   Controllers JSON por modulo
-  Http/Requests/          Validacao de entrada
-  Models/                 Entidades Eloquent e relacionamentos
-  Services/               Regras de negocio
-database/migrations/      Schema versionado do banco
+api/
+  config.php       Configuracao do arquivo de dados
+  helpers.php      Funcoes comuns de JSON, leitura e gravacao
+  index.php        Rotas simples da API
+data/
+  storage.json     Banco simples em arquivo JSON
+database/
+  schema.sql       Modelo opcional para MySQL no futuro
+public/
+  index.html       Entrada do frontend
+  api/index.php    Ponte publica para a API PHP
+  assets/app.jsx   Aplicacao React
+  assets/styles.css
+  manifest.json
+  sw.js
 docs/
-  architecture.md         Fluxo do projeto e separacao de responsabilidades
-  legacy/db.php           PDO/SQL antigo mantido como referencia
-public/                   Front controller, PWA manifest, service worker
-resources/
-  views/stock/app.php     Interface React/Babel legada
-  js/legacy-app.js        JS legado como referencia
-  css/legacy-style.css    CSS legado como referencia
-routes/
-  web.php                 Tela principal
-  api.php                 API REST
+  architecture.md  Explicacao do fluxo simples
 ```
 
-## Fluxo da aplicacao
+## Como rodar no PC
 
-```text
-Navegador
-  -> Laravel public/index.php
-      -> routes/web.php
-          -> resources/views/stock/app.php
-      -> routes/api.php
-          -> Controllers
-          -> Requests
-          -> Services
-          -> Models
-          -> Banco via migrations
-```
+Voce precisa apenas de PHP instalado.
 
-## Modulos implementados no backend
-
-- `GET /api/dashboard`
-- `apiResource /api/fornecedores`
-- `apiResource /api/produtos`
-- `GET|POST|GET by id /api/movimentacoes`
-- `GET|POST|GET by id /api/notas-fiscais`
-- `POST /api/notas-fiscais/{notaFiscal}/cancelar`
-
-## Como rodar
-
-Requisitos:
-
-- PHP 8.3+
-- Composer
-- MySQL ou SQLite
-
-Passos:
+Na pasta do projeto:
 
 ```bash
-composer install
-cp .env.example .env
-php artisan key:generate
-php artisan migrate --seed
-php artisan serve
+php -S 127.0.0.1:8000 -t public
 ```
 
-Acesse `http://127.0.0.1:8000`.
+Acesse:
 
-## Observacao importante
+```text
+http://127.0.0.1:8000
+```
 
-O ambiente atual desta maquina nao tem `php` nem `composer` instalados, entao a validacao local com `php artisan` nao foi executada aqui. A estrutura foi preparada para instalar as dependencias e rodar assim que essas ferramentas estiverem disponiveis.
+## Como abrir no celular na mesma rede
 
-## Proximo passo tecnico
+Rode o servidor aceitando conexoes externas:
 
-A interface ainda usa `localStorage`. O proximo passo e trocar os pontos de persistencia do `legacy-app.js` por chamadas `fetch('/api/...')` e, depois, migrar React/Babel via CDN para Vite.
+```bash
+php -S 0.0.0.0:8000 -t public
+```
+
+Descubra o IP do PC:
+
+```powershell
+ipconfig
+```
+
+No celular, conectado ao mesmo Wi-Fi, acesse:
+
+```text
+http://IP-DO-SEU-PC:8000
+```
+
+Exemplo:
+
+```text
+http://192.168.0.10:8000
+```
+
+## Endpoints da API
+
+Todos ficam em `public/api/index.php`.
+
+```text
+GET  /api/index.php?resource=dashboard
+GET  /api/index.php?resource=suppliers
+POST /api/index.php?resource=suppliers
+GET  /api/index.php?resource=products
+POST /api/index.php?resource=products
+GET  /api/index.php?resource=movements
+POST /api/index.php?resource=movements
+GET  /api/index.php?resource=invoices
+POST /api/index.php?resource=invoices
+POST /api/index.php?resource=invoices&action=cancel
+```
+
+## Observacao
+
+Essa versao foi feita para ser facil de entender. Para producao real com varios usuarios ao mesmo tempo, o ideal e trocar `data/storage.json` por MySQL usando o modelo em `database/schema.sql`.
