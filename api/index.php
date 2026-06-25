@@ -16,6 +16,7 @@ try {
         'products' => handle_products($store, $method),
         'movements' => handle_movements($store, $method),
         'invoices' => handle_invoices($store, $method, $action),
+        'commands' => handle_commands($store, $method, $action),
         default => json_response(['error' => 'Recurso nao encontrado.'], 404),
     };
 } catch (Throwable $exception) {
@@ -248,5 +249,286 @@ function handle_invoices(array $store, string $method, ?string $action): void
     save_store($store);
 
     json_response($invoice, 201);
+}
+
+function handle_commands(array $store, string $method, ?string $action): void
+{
+    if ($method === 'GET') {
+        $id = isset($_GET['id']) ? (int) $_GET['id'] : 0;
+
+        if ($id > 0) {
+            $index = find_index_by_id($store['commands'], $id);
+
+            if ($index < 0) {
+                json_response(['error' => 'Comanda nao encontrada.'], 404);
+            }
+
+            json_response(normalize_command($store['commands'][$index]));
+        }
+
+        $status = trim((string) ($_GET['status'] ?? ''));
+        $commands = array_map('normalize_command', $store['commands']);
+
+        if ($status !== '') {
+            $commands = array_values(array_filter(
+                $commands,
+                fn (array $command): bool => $command['status'] === $status
+            ));
+        }
+
+        usort($commands, fn (array $a, array $b): int => strcmp($b['created_at'], $a['created_at']));
+        json_response($commands);
+    }
+
+    if ($method !== 'POST') {
+        json_response(['error' => 'Metodo nao permitido.'], 405);
+    }
+
+    $data = request_body();
+
+    match ($action) {
+        'add-item' => command_add_item($store, $data),
+        'remove-item' => command_remove_item($store, $data),
+        'request-bill' => command_request_bill($store, $data),
+        'close' => command_close($store, $data),
+        'mark-ready' => command_mark_item_status($store, $data, 'ready'),
+        'mark-delivered' => command_mark_item_status($store, $data, 'delivered'),
+        default => command_create($store, $data),
+    };
+}
+
+function command_create(array $store, array $data): void
+{
+    $tableNumber = trim((string) ($data['table_number'] ?? ''));
+    $customerName = trim((string) ($data['customer_name'] ?? ''));
+
+    if ($tableNumber === '' && $customerName === '') {
+        json_response(['error' => 'Informe a mesa ou o nome do cliente.'], 422);
+    }
+
+    foreach ($store['commands'] as $command) {
+        $sameTable = $tableNumber !== '' && ($command['table_number'] ?? '') === $tableNumber;
+        $sameCustomer = $customerName !== '' && strcasecmp((string) ($command['customer_name'] ?? ''), $customerName) === 0;
+
+        if (($command['status'] ?? '') !== 'closed' && ($sameTable || $sameCustomer)) {
+            json_response(normalize_command($command), 200);
+        }
+    }
+
+    $command = [
+        'id' => next_id($store, 'commands'),
+        'table_number' => $tableNumber,
+        'customer_name' => $customerName,
+        'status' => 'open',
+        'items' => [],
+        'total_value' => 0,
+        'created_at' => date('c'),
+        'closed_at' => null,
+        'bill_requested_at' => null,
+    ];
+
+    $store['commands'][] = $command;
+    save_store($store);
+
+    json_response($command, 201);
+}
+
+function command_add_item(array $store, array $data): void
+{
+    require_fields($data, ['command_id', 'product_id', 'quantity']);
+
+    $commandIndex = find_index_by_id($store['commands'], (int) $data['command_id']);
+    $productIndex = find_index_by_id($store['products'], (int) $data['product_id']);
+
+    if ($commandIndex < 0) {
+        json_response(['error' => 'Comanda nao encontrada.'], 404);
+    }
+
+    if ($productIndex < 0) {
+        json_response(['error' => 'Produto nao encontrado.'], 404);
+    }
+
+    if (($store['commands'][$commandIndex]['status'] ?? '') === 'closed') {
+        json_response(['error' => 'Comanda fechada nao aceita novos itens.'], 422);
+    }
+
+    $quantity = max(1, (int) $data['quantity']);
+    $currentStock = (int) ($store['products'][$productIndex]['stock'] ?? 0);
+
+    if ($currentStock < $quantity) {
+        json_response(['error' => 'Estoque insuficiente para adicionar este item.'], 422);
+    }
+
+    $store['products'][$productIndex]['stock'] = $currentStock - $quantity;
+    $product = $store['products'][$productIndex];
+
+    $item = [
+        'id' => next_id($store, 'command_items'),
+        'product_id' => (int) $data['product_id'],
+        'product_name' => $product['name'],
+        'quantity' => $quantity,
+        'unit_price' => max(0, (float) ($product['sale_price'] ?? 0)),
+        'status' => 'pending',
+        'notes' => trim((string) ($data['notes'] ?? '')),
+        'created_at' => date('c'),
+        'ready_at' => null,
+        'delivered_at' => null,
+    ];
+
+    $store['commands'][$commandIndex]['items'][] = $item;
+    $store['commands'][$commandIndex] = normalize_command($store['commands'][$commandIndex]);
+
+    $movement = [
+        'id' => next_id($store, 'movements'),
+        'product_id' => (int) $data['product_id'],
+        'product_name' => $product['name'],
+        'type' => 'exit',
+        'quantity' => $quantity,
+        'reason' => 'Comanda #' . $store['commands'][$commandIndex]['id'],
+        'date' => date('Y-m-d'),
+        'created_at' => date('c'),
+    ];
+
+    $store['movements'][] = $movement;
+    save_store($store);
+
+    json_response($store['commands'][$commandIndex], 201);
+}
+
+function command_remove_item(array $store, array $data): void
+{
+    require_fields($data, ['command_id', 'item_id']);
+
+    $commandIndex = find_index_by_id($store['commands'], (int) $data['command_id']);
+
+    if ($commandIndex < 0) {
+        json_response(['error' => 'Comanda nao encontrada.'], 404);
+    }
+
+    if (($store['commands'][$commandIndex]['status'] ?? '') === 'closed') {
+        json_response(['error' => 'Nao e possivel remover item de comanda fechada.'], 422);
+    }
+
+    $itemIndex = find_index_by_id($store['commands'][$commandIndex]['items'] ?? [], (int) $data['item_id']);
+
+    if ($itemIndex < 0) {
+        json_response(['error' => 'Item nao encontrado.'], 404);
+    }
+
+    $item = $store['commands'][$commandIndex]['items'][$itemIndex];
+    $productIndex = find_index_by_id($store['products'], (int) $item['product_id']);
+
+    if ($productIndex >= 0) {
+        $store['products'][$productIndex]['stock'] = (int) $store['products'][$productIndex]['stock'] + (int) $item['quantity'];
+    }
+
+    $store['movements'][] = [
+        'id' => next_id($store, 'movements'),
+        'product_id' => (int) $item['product_id'],
+        'product_name' => $item['product_name'],
+        'type' => 'entry',
+        'quantity' => (int) $item['quantity'],
+        'reason' => 'Remocao da comanda #' . $store['commands'][$commandIndex]['id'],
+        'date' => date('Y-m-d'),
+        'created_at' => date('c'),
+    ];
+
+    array_splice($store['commands'][$commandIndex]['items'], $itemIndex, 1);
+    $store['commands'][$commandIndex] = normalize_command($store['commands'][$commandIndex]);
+    save_store($store);
+
+    json_response($store['commands'][$commandIndex]);
+}
+
+function command_request_bill(array $store, array $data): void
+{
+    require_fields($data, ['command_id']);
+
+    $commandIndex = find_index_by_id($store['commands'], (int) $data['command_id']);
+
+    if ($commandIndex < 0) {
+        json_response(['error' => 'Comanda nao encontrada.'], 404);
+    }
+
+    if (($store['commands'][$commandIndex]['status'] ?? '') !== 'closed') {
+        $store['commands'][$commandIndex]['status'] = 'bill_requested';
+        $store['commands'][$commandIndex]['bill_requested_at'] = date('c');
+    }
+
+    $store['commands'][$commandIndex] = normalize_command($store['commands'][$commandIndex]);
+    save_store($store);
+
+    json_response($store['commands'][$commandIndex]);
+}
+
+function command_close(array $store, array $data): void
+{
+    require_fields($data, ['command_id']);
+
+    $commandIndex = find_index_by_id($store['commands'], (int) $data['command_id']);
+
+    if ($commandIndex < 0) {
+        json_response(['error' => 'Comanda nao encontrada.'], 404);
+    }
+
+    $store['commands'][$commandIndex]['status'] = 'closed';
+    $store['commands'][$commandIndex]['closed_at'] = date('c');
+    $store['commands'][$commandIndex] = normalize_command($store['commands'][$commandIndex]);
+    save_store($store);
+
+    json_response($store['commands'][$commandIndex]);
+}
+
+function command_mark_item_status(array $store, array $data, string $status): void
+{
+    require_fields($data, ['command_id', 'item_id']);
+
+    $commandIndex = find_index_by_id($store['commands'], (int) $data['command_id']);
+
+    if ($commandIndex < 0) {
+        json_response(['error' => 'Comanda nao encontrada.'], 404);
+    }
+
+    $itemIndex = find_index_by_id($store['commands'][$commandIndex]['items'] ?? [], (int) $data['item_id']);
+
+    if ($itemIndex < 0) {
+        json_response(['error' => 'Item nao encontrado.'], 404);
+    }
+
+    $store['commands'][$commandIndex]['items'][$itemIndex]['status'] = $status;
+
+    if ($status === 'ready') {
+        $store['commands'][$commandIndex]['items'][$itemIndex]['ready_at'] = date('c');
+    }
+
+    if ($status === 'delivered') {
+        $store['commands'][$commandIndex]['items'][$itemIndex]['delivered_at'] = date('c');
+    }
+
+    $store['commands'][$commandIndex] = normalize_command($store['commands'][$commandIndex]);
+    save_store($store);
+
+    json_response($store['commands'][$commandIndex]);
+}
+
+function normalize_command(array $command): array
+{
+    $items = array_values($command['items'] ?? []);
+    $total = array_reduce(
+        $items,
+        fn (float $sum, array $item): float => $sum + ((int) $item['quantity'] * (float) $item['unit_price']),
+        0.0
+    );
+
+    $command['items'] = $items;
+    $command['total_value'] = $total;
+    $command['status'] = $command['status'] ?? 'open';
+    $command['table_number'] = $command['table_number'] ?? '';
+    $command['customer_name'] = $command['customer_name'] ?? '';
+    $command['created_at'] = $command['created_at'] ?? date('c');
+    $command['closed_at'] = $command['closed_at'] ?? null;
+    $command['bill_requested_at'] = $command['bill_requested_at'] ?? null;
+
+    return $command;
 }
 

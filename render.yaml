@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: controle-estoque-api
+    env: node
+    rootDir: backend
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: APP_CHECK_REQUIRED
+        value: false
+      - key: ALLOWED_ORIGINS
+        value: https://stockapp-28944.web.app

@@ -1,0 +1,29 @@
+{
+  "name": "controle-de-estoque-firebase-migration",
+  "private": true,
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "vite build",
+    "preview": "vite preview --host 127.0.0.1",
+    "api:install": "npm install --prefix backend",
+    "api:dev": "npm run dev --prefix backend",
+    "api:start": "npm start --prefix backend",
+    "api:test": "npm test --prefix backend",
+    "firebase:emulators": "firebase emulators:start",
+    "firebase:deploy": "firebase deploy --only hosting,firestore:rules,firestore:indexes",
+    "firebase:deploy:functions": "echo Functions desativadas neste projeto para manter o plano gratuito.",
+    "firebase:deploy:rules": "firebase deploy --only firestore:rules,firestore:indexes",
+    "migrate:firestore": "node scripts/migrate-storage-to-firestore.js"
+  },
+  "dependencies": {
+    "firebase": "^10.14.1",
+    "firebase-admin": "^12.7.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.4",
+    "firebase-tools": "^13.29.2",
+    "vite": "^5.4.11"
+  }
+}

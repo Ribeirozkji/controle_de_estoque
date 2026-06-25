@@ -2,55 +2,66 @@
 
 Sistema simples de estoque com:
 
-- Frontend em React direto no navegador.
-- Backend em PHP puro.
-- Dados salvos em `data/storage.json`.
-- Sem Laravel, sem Composer, sem build de frontend.
+- Frontend em React com Vite.
+- Backend proprio em Node/Express.
+- Firebase Auth para login.
+- Firestore acessado apenas pelo backend com Firebase Admin SDK.
+- Comanda digital com interface de cliente e painel administrativo.
 
 ## Estrutura
 
 ```text
-api/
-  config.php       Configuracao do arquivo de dados
-  helpers.php      Funcoes comuns de JSON, leitura e gravacao
-  index.php        Rotas simples da API
-data/
-  storage.json     Banco simples em arquivo JSON
-database/
-  schema.sql       Modelo opcional para MySQL no futuro
 public/
-  index.html       Entrada do frontend
-  api/index.php    Ponte publica para a API PHP
-  assets/app.jsx   Aplicacao React
   assets/styles.css
   manifest.json
   sw.js
+src/
+  main.jsx         Aplicacao React
+  services/        Cliente Firebase/Auth + API
+backend/
+  server.js        API propria segura
+  set-role.js      Script para aplicar roles
 docs/
   architecture.md  Explicacao do fluxo simples
+  firebase-migration.md  Migracao prioritaria para Firebase
+  backend-api.md  Backend proprio seguro com Firebase Admin
 ```
 
 ## Como rodar no PC
 
-Voce precisa apenas de PHP instalado.
-
-Na pasta do projeto:
+Instale dependencias:
 
 ```bash
-php -S 127.0.0.1:8000 -t public
+npm install
+npm run api:install
+```
+
+Configure `.env` a partir de `.env.example`.
+
+Rode a API:
+
+```bash
+npm run api:dev
+```
+
+Em outro terminal, rode o frontend:
+
+```bash
+npm run dev
 ```
 
 Acesse:
 
 ```text
-http://127.0.0.1:8000
+http://127.0.0.1:5173
 ```
 
 ## Como abrir no celular na mesma rede
 
-Rode o servidor aceitando conexoes externas:
+Para testar na rede local, rode o Vite aceitando conexoes externas:
 
 ```bash
-php -S 0.0.0.0:8000 -t public
+npm run dev -- --host 0.0.0.0
 ```
 
 Descubra o IP do PC:
@@ -62,32 +73,72 @@ ipconfig
 No celular, conectado ao mesmo Wi-Fi, acesse:
 
 ```text
-http://IP-DO-SEU-PC:8000
+http://IP-DO-SEU-PC:5173
 ```
 
 Exemplo:
 
 ```text
-http://192.168.0.10:8000
+http://192.168.0.10:5173
+```
+
+Para publicar o frontend:
+
+```bash
+npm run build
+npm run firebase:deploy
 ```
 
 ## Endpoints da API
 
-Todos ficam em `public/api/index.php`.
+Consulte a API propria em `docs/backend-api.md`.
+
+## Comanda digital
+
+A aba `Cliente` simula a tela mobile usada por QR code.
+
+Para abrir direto uma mesa, use:
 
 ```text
-GET  /api/index.php?resource=dashboard
-GET  /api/index.php?resource=suppliers
-POST /api/index.php?resource=suppliers
-GET  /api/index.php?resource=products
-POST /api/index.php?resource=products
-GET  /api/index.php?resource=movements
-POST /api/index.php?resource=movements
-GET  /api/index.php?resource=invoices
-POST /api/index.php?resource=invoices
-POST /api/index.php?resource=invoices&action=cancel
+http://127.0.0.1:5173/?view=client&mesa=01&token=TOKEN_DA_MESA
 ```
 
-## Observacao
+O cliente pode abrir a comanda, adicionar produtos, informar observacoes por item, acompanhar o status e solicitar a conta.
 
-Essa versao foi feita para ser facil de entender. Para producao real com varios usuarios ao mesmo tempo, o ideal e trocar `data/storage.json` por MySQL usando o modelo em `database/schema.sql`.
+No painel administrativo, use:
+
+- `Comandas`: mesas/clientes ativos e fechamento da comanda.
+- `Pendentes`: itens aguardando preparo, prontos e entregues.
+- `Historico`: comandas fechadas e consumo por horario.
+
+## Migracao para Firebase
+
+A primeira etapa da migracao para Firebase ja foi estruturada para as prioridades:
+
+- Produtos
+- Comandas digitais
+- Estoque/movimentacoes
+- Frontend conectado a API propria usando Firebase Auth
+- Sem Cloud Functions para manter compatibilidade com o plano gratuito
+- Backend proprio Node/Express para operacoes sensiveis
+- Firestore fechado para acesso direto pelo navegador
+- Login por Firebase Auth com roles no backend
+
+Arquivos principais:
+
+```text
+firebase.json
+firestore.rules
+firestore.indexes.json
+src/main.jsx
+src/services/firebaseClient.js
+backend/server.js
+scripts/migrate-storage-to-firestore.js
+docs/backend-api.md
+```
+
+Leia o passo a passo em:
+
+```text
+docs/backend-api.md
+```

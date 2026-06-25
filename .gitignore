@@ -2,8 +2,14 @@
 .DS_Store
 Thumbs.db
 node_modules/
+backend/node_modules/
+functions/
 vendor/
 *.log
+service-account.json
+firebase-debug.log
+firebase-debug.*.log
+.firebase/
 
 # O arquivo data/storage.json fica versionado como base vazia.
 # Se quiser evitar subir dados reais depois, troque por:

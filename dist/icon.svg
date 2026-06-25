@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" role="img" aria-label="Controle de Estoque">
+  <rect width="192" height="192" rx="36" fill="#0f1623"/>
+  <path d="M48 68 96 42l48 26v56l-48 26-48-26V68Z" fill="#1a1f2e" stroke="#6366f1" stroke-width="8" stroke-linejoin="round"/>
+  <path d="M48 68 96 94l48-26M96 94v56" fill="none" stroke="#10b981" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M70 118h22M70 134h38" stroke="#e8eaf6" stroke-width="8" stroke-linecap="round"/>
+</svg>

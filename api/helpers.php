@@ -67,11 +67,14 @@ function default_store(): array
         'products' => [],
         'movements' => [],
         'invoices' => [],
+        'commands' => [],
         'counters' => [
             'suppliers' => 0,
             'products' => 0,
             'movements' => 0,
             'invoices' => 0,
+            'commands' => 0,
+            'command_items' => 0,
         ],
     ];
 }
